@@ -11,7 +11,6 @@ REBOOT="n"
 echo "SDRplay API ${VERS} Installation"
 echo "============================="
 echo " "
-#     0--------1---------2---------3---------4---------5---------6---------7---------8
 echo "This installation requires to either be run as root, or it will request root"
 echo "access through the sudo program. This is required to install the daemon into"
 echo "the system files."
@@ -45,7 +44,6 @@ fi
 
 if [ "${INSTALLARCH}" != "x86_64" ]; then
     if [ "${INSTALLARCH}" != "aarch64" ]; then
-#             0--------1---------2---------3---------4---------5---------6---------7---------8
         echo " "
         echo "This installer does not support the architecture you are installing on."
         echo "Please check https://www.sdrplay.com/api to see if there's an installer"
@@ -54,7 +52,6 @@ if [ "${INSTALLARCH}" != "x86_64" ]; then
     fi
 fi
 
-#     0--------1---------2---------3---------4---------5---------6---------7---------8
 echo " "
 echo "Checking for root permissions. You may be prompted for your password..."
 echo " "
@@ -227,7 +224,6 @@ locscripts="/etc/init.d"
 DAEMON_SYS="Init"
 fi
 
-#     0--------1---------2---------3---------4---------5---------6---------7---------8
 echo "Installing API files, the default locations are..."
 echo "API service : ${locservice}"
 echo "API header files : ${locheader}"
@@ -264,146 +260,6 @@ sudo cp -f ${INSTALLARCH}/sdrplay_apiService ${locservice}/sdrplay_apiService
 sudo chmod 755 ${locservice}/sdrplay_apiService
 echo "Done"
 
-echo -n "Installing Service scripts and starting daemon..."
-if [ -d "/etc/systemd/system" ]; then
-    SRVTYPE="systemd"
-    if [ -f "/etc/systemd/system/sdrplay.service" ]; then
-        sudo systemctl stop sdrplay
-        sudo systemctl disable sdrplay
-    fi
-    sudo bash -c 'cat > /etc/systemd/system/sdrplay.service' << EOF
-[Unit]
-Description=SDRplay API Service
-After=network.target
-StartLimitIntervalSec=0
-
-[Service]
-Type=simple
-Restart=on-failure
-RestartSec=1
-User=root
-ExecStart=${locservice}/sdrplay_apiService
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-    sudo chmod 644 /etc/systemd/system/sdrplay.service
-    sudo systemctl enable sdrplay
-    sudo systemctl start sdrplay
-else
-    SRVTYPE="initd"
-    if [ -f "/etc/init.d/sdrplayService" ]; then
-        sudo service sdrplayService stop
-    fi
-    sudo bash -c 'cat > /etc/init.d/sdrplayService' << EOF
-#!/bin/sh
-
-### BEGIN INIT INFO
-# Provides:          sdrplayServicedaemon
-# Required-Start:    \$local_fs \$network \$syslog
-# Required-Stop:     \$local_fs \$network \$syslog
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: sdrplay_apiService
-# Description:       Service for SDRplay API
-### END INIT INFO
-
-NAME="sdrplay_apiService"
-PATH="/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin"
-APPDIR="/"
-APPBIN="${locservice}/sdrplay_apiService"
-APPARGS=""
-
-# Include functions
-set -e
-if test -f /lib/lsb/init-functions; then
-    . /lib/lsb/init-functions
-fi
-
-start() {
-  printf "Starting '\$NAME'... "
-  start-stop-daemon --start --background --make-pidfile --pidfile /var/run/\$NAME.pid --chdir "\$APPDIR" --exec "\$APPBIN" -- \$APPARGS || true
-  printf "done\n"
-}
-
-#We need this function to ensure the whole process tree will be killed
-killtree() {
-    local _pid=\$1
-    local _sig=\${2-TERM}
-    for _child in \$(ps -o pid --no-headers --ppid \${_pid}); do
-        killtree \${_child} \${_sig}
-    done
-    kill -\${_sig} \${_pid}
-}
-
-stop() {
-  printf "Stopping '\$NAME'... "
-  [ -z \`cat /var/run/\$NAME.pid 2>/dev/null\` ] || \\
-  while test -d /proc/\$(cat /var/run/\$NAME.pid); do
-    killtree \$(cat /var/run/\$NAME.pid) 15
-    sleep 0.5
-  done
-  [ -z \`cat /var/run/\$NAME.pid 2>/dev/null\` ] || rm /var/run/\$NAME.pid
-  printf "done\n"
-}
-
-status() {
-  status_of_proc -p /var/run/\$NAME.pid "" \$NAME && exit 0 || exit \$?
-}
-
-case "\$1" in
-  start)
-    start
-    ;;
-  stop)
-    stop
-    ;;
-  restart)
-    stop
-    start
-    ;;
-  status)
-    status
-    ;;
-  *)
-    echo "Usage: \$NAME {start|stop|restart|status}" >&2
-    exit 1
-    ;;
-esac
-
-exit 0
-EOF
-
-    sudo chmod 755 /etc/init.d/sdrplayService
-    UPRC=$( command -v update-rc.d )
-    if [ "${UPRC}" != "" ]; then
-        sudo update-rc.d sdrplayService defaults
-    fi
-    sudo service sdrplayService start
-fi
-
 sudo ldconfig
 
 echo "Done"
-
-#     0--------1---------2---------3---------4---------5---------6---------7---------8
-echo " "
-echo "The API Service has been installed and started. After the installation has"
-echo "finished, please reboot this device."
-
-echo " "
-echo "To start and stop the API service, use the following commands..."
-echo " "
-if [ "${SRVTYPE}" != "systemd" ]; then
-    echo "sudo service sdrplayService start"
-    echo "sudo service sdrplayService stop"
-else
-    echo "sudo systemctl start sdrplay"
-    echo "sudo systemctl stop sdrplay"
-fi
-echo " "
-echo "If supported on your system, lsusb will now show the RSP name"
-echo " "
-echo "SDRplay API ${VERS} Installation Finished"
-echo " "
